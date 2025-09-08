@@ -21,22 +21,17 @@ A PowerShell script to automatically install g++ (GCC) compiler on Windows using
 
 ## ⚡ Quick Installation
 
-### Method 1: One-Line Install
+### Method 1: One-Line Install (Recommended)
 
-**Option A: Run as Administrator First (Recommended)**
-1. Right-click on PowerShell and select "Run as administrator"
-2. Run the command:
+Open PowerShell (normal mode) and run:
+
 ```powershell
 irm https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1 | iex
 ```
 
-**Option B: Auto-Elevate (Advanced)**
-Open PowerShell (normal mode) and run:
-```powershell
-Start-Process PowerShell -Verb RunAs -ArgumentList "-Command irm https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1 | iex"
-```
+**What happens:** The script will automatically detect it needs admin privileges, download itself temporarily, and relaunch with administrator rights.
 
-### Method 2: Download and Run (Most Reliable)
+### Method 2: Download and Run
 
 1. Download the script:
    ```powershell
@@ -166,13 +161,10 @@ cmake --build .
 
 ## 🐛 Troubleshooting
 
-### One-Line Install Closes Terminal
-- **Issue**: Using `irm | iex` opens UAC popup then closes terminal
-- **Cause**: Script cannot auto-elevate when run via `irm | iex`
-- **Solution**: Use one of these methods:
-  1. **Run PowerShell as admin first**, then use `irm | iex`
-  2. **Use the auto-elevate command** (Option B above)
-  3. **Download the script** and run it normally (Method 2)
+### UAC Prompt Appears and Disappears
+- **Issue**: UAC prompt shows briefly then disappears when using `irm | iex`
+- **Cause**: Script is automatically handling elevation (this is normal behavior)
+- **Solution**: Wait for the UAC prompt and click "Yes" - the script will continue in an elevated session
 
 ### Script Won't Run
 - **Issue**: "Execution policy" error

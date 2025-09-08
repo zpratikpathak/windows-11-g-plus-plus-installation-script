@@ -3,7 +3,8 @@
 param(
     [switch]$SkipCMake,
     [switch]$Verbose,
-    [string]$MinGWVariant = "BrechtSanders.WinLibs.POSIX.UCRT"
+    [string]$MinGWVariant = "BrechtSanders.WinLibs.POSIX.UCRT",
+    [string]$TempFile = ""
 )
 
 # Function to check if running as administrator
@@ -21,19 +22,44 @@ function Start-AsAdmin {
         # Check if script was run via irm | iex (no file path available)
         if ([string]::IsNullOrEmpty($PSCommandPath)) {
             Write-ColorOutput "Detected script was run via irm | iex method." "Yellow"
-            Write-ColorOutput "Please run this script again as administrator using one of these methods:" "White"
-            Write-ColorOutput ""
-            Write-ColorOutput "Method 1 - Download and run as admin:" "Cyan"
-            Write-ColorOutput '  Invoke-WebRequest -Uri "https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1" -OutFile "install.ps1"' "White"
-            Write-ColorOutput '  Right-click PowerShell -> "Run as administrator"' "White"
-            Write-ColorOutput '  .\install.ps1' "White"
-            Write-ColorOutput ""
-            Write-ColorOutput "Method 2 - One-line admin command:" "Cyan"
-            Write-ColorOutput '  Start-Process PowerShell -Verb RunAs -ArgumentList "-Command irm https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1 | iex"' "White"
-            Write-ColorOutput ""
-            Write-ColorOutput "Press any key to exit..." "Yellow"
-            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-            exit 1
+            Write-ColorOutput "Downloading script temporarily and restarting as administrator..." "Yellow"
+            
+            try {
+                # Create a temporary file for the script
+                $tempScript = [System.IO.Path]::GetTempFileName() + ".ps1"
+                $scriptUrl = "https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1"
+                
+                # Download the script to temp location
+                Invoke-WebRequest -Uri $scriptUrl -OutFile $tempScript -UseBasicParsing
+                
+                # Build the command line arguments to pass to the elevated process
+                $argList = @("-ExecutionPolicy", "Bypass", "-File", "`"$tempScript`"")
+                if ($SkipCMake) { $argList += "-SkipCMake" }
+                if ($Verbose) { $argList += "-Verbose" }
+                if ($MinGWVariant -ne "BrechtSanders.WinLibs.POSIX.UCRT") { 
+                    $argList += "-MinGWVariant", "`"$MinGWVariant`"" 
+                }
+                
+                # Add cleanup parameter to remove temp file after execution
+                $argList += "-TempFile", "`"$tempScript`""
+                
+                # Start elevated process
+                Start-Process PowerShell -ArgumentList $argList -Verb RunAs -Wait
+                
+                # Clean up temp file if still exists
+                if (Test-Path $tempScript) {
+                    Remove-Item $tempScript -Force -ErrorAction SilentlyContinue
+                }
+                
+                exit 0
+            }
+            catch {
+                Write-ColorOutput "Failed to download and restart script: $($_.Exception.Message)" "Red"
+                Write-ColorOutput "Please try one of the manual methods from the README." "Red"
+                Write-ColorOutput "Press any key to exit..." "Yellow"
+                $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+                exit 1
+            }
         }
         
         Write-ColorOutput "Restarting script as administrator..." "Yellow"
@@ -310,3 +336,14 @@ if ($args -contains "-h" -or $args -contains "--help" -or $args -contains "/?") 
 
 # Run the installation
 Install-GppToolchain
+
+# Clean up temporary file if it was created during auto-elevation
+if (-not [string]::IsNullOrEmpty($TempFile) -and (Test-Path $TempFile)) {
+    try {
+        Remove-Item $TempFile -Force -ErrorAction SilentlyContinue
+        Write-ColorOutput "Cleaned up temporary file." "Green"
+    }
+    catch {
+        # Silently ignore cleanup errors
+    }
+}
