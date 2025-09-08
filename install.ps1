@@ -17,6 +17,25 @@ function Test-IsAdmin {
 function Start-AsAdmin {
     if (-not (Test-IsAdmin)) {
         Write-ColorOutput "This script requires administrator privileges to install software." "Yellow"
+        
+        # Check if script was run via irm | iex (no file path available)
+        if ([string]::IsNullOrEmpty($PSCommandPath)) {
+            Write-ColorOutput "Detected script was run via irm | iex method." "Yellow"
+            Write-ColorOutput "Please run this script again as administrator using one of these methods:" "White"
+            Write-ColorOutput ""
+            Write-ColorOutput "Method 1 - Download and run as admin:" "Cyan"
+            Write-ColorOutput '  Invoke-WebRequest -Uri "https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1" -OutFile "install.ps1"' "White"
+            Write-ColorOutput '  Right-click PowerShell -> "Run as administrator"' "White"
+            Write-ColorOutput '  .\install.ps1' "White"
+            Write-ColorOutput ""
+            Write-ColorOutput "Method 2 - One-line admin command:" "Cyan"
+            Write-ColorOutput '  Start-Process PowerShell -Verb RunAs -ArgumentList "-Command irm https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1 | iex"' "White"
+            Write-ColorOutput ""
+            Write-ColorOutput "Press any key to exit..." "Yellow"
+            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+            exit 1
+        }
+        
         Write-ColorOutput "Restarting script as administrator..." "Yellow"
         
         # Build the command line arguments to pass to the elevated process
