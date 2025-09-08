@@ -21,6 +21,22 @@ A PowerShell script to automatically install g++ (GCC) compiler on Windows using
 - Internet connection
 - Windows Package Manager (winget) - comes pre-installed on Windows 11 and newer Windows 10 versions
 
+## 🔧 Execution Policy Setup
+
+If you encounter execution policy errors, you may need to allow script execution:
+
+### Temporary Solution (Recommended)
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
+```
+
+### Permanent Solution (Use with caution)
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser
+```
+
+**Note**: The temporary solution only affects the current PowerShell session and is safer.
+
 ## ⚡ Quick Installation
 
 ### Method 1: One-Line Install (Recommended)
@@ -31,7 +47,6 @@ Open PowerShell (normal mode) and run:
 irm https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1 | iex
 ```
 
-**What happens:** The script will automatically detect it needs admin privileges, download itself temporarily, and relaunch with administrator rights.
 
 ### Method 2: Download and Run
 
@@ -52,21 +67,7 @@ irm https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-insta
 3. Open PowerShell in that directory
 4. Run: `.\install.ps1`
 
-## 🔧 Execution Policy Setup
 
-If you encounter execution policy errors, you may need to allow script execution:
-
-### Temporary Solution (Recommended)
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
-```
-
-### Permanent Solution (Use with caution)
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser
-```
-
-**Note**: The temporary solution only affects the current PowerShell session and is safer.
 
 ## 📝 Usage Options
 
