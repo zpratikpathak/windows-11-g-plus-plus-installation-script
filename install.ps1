@@ -7,6 +7,33 @@ param(
     [string]$TempFile = ""
 )
 
+# Register cleanup on script exit (handles Ctrl+C, window closing, etc.)
+if (-not [string]::IsNullOrEmpty($TempFile)) {
+    Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
+        if (Test-Path $using:TempFile) {
+            try {
+                Remove-Item $using:TempFile -Force -ErrorAction SilentlyContinue
+            }
+            catch {
+                # Silently ignore cleanup errors
+            }
+        }
+    } | Out-Null
+    
+    # Also register for Ctrl+C interruption
+    [Console]::TreatControlCAsInput = $false
+    $null = Register-ObjectEvent -InputObject ([Console]) -EventName CancelKeyPress -Action {
+        if (Test-Path $using:TempFile) {
+            try {
+                Remove-Item $using:TempFile -Force -ErrorAction SilentlyContinue
+            }
+            catch {
+                # Silently ignore cleanup errors
+            }
+        }
+    }
+}
+
 # Function to check if running as administrator
 function Test-IsAdmin {
     $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -31,6 +58,24 @@ function Start-AsAdmin {
                 
                 # Download the script to temp location
                 Invoke-WebRequest -Uri $scriptUrl -OutFile $tempScript -UseBasicParsing
+                
+                # Mark file for deletion on reboot as a safety measure
+                try {
+                    # Use Windows API to mark file for deletion on next reboot (safety net)
+                    Add-Type -TypeDefinition @"
+                        using System;
+                        using System.Runtime.InteropServices;
+                        public class FileOperations {
+                            [DllImport("kernel32.dll", SetLastError=true)]
+                            public static extern bool MoveFileEx(string lpExistingFileName, string lpNewFileName, int dwFlags);
+                            public const int MOVEFILE_DELAY_UNTIL_REBOOT = 0x4;
+                        }
+"@
+                    [FileOperations]::MoveFileEx($tempScript, $null, [FileOperations]::MOVEFILE_DELAY_UNTIL_REBOOT)
+                }
+                catch {
+                    # Ignore if this fails - it's just a safety net
+                }
                 
                 # Build the command line arguments to pass to the elevated process
                 $argList = @("-ExecutionPolicy", "Bypass", "-File", "`"$tempScript`"")
@@ -313,37 +358,41 @@ function Install-GppToolchain {
     }
 }
 
-# Show usage if help is requested
-if ($args -contains "-h" -or $args -contains "--help" -or $args -contains "/?") {
-    Write-ColorOutput "Usage: .\install-gpp.ps1 [OPTIONS]" "Cyan"
-    Write-ColorOutput ""
-    Write-ColorOutput "Options:" "White"
-    Write-ColorOutput "  -SkipCMake          Skip CMake installation" "White"
-    Write-ColorOutput "  -Verbose            Show available MinGW packages before installation" "White"
-    Write-ColorOutput "  -MinGWVariant <id>  Specify MinGW package ID (default: BrechtSanders.WinLibs.POSIX.UCRT)" "White"
-    Write-ColorOutput ""
-    Write-ColorOutput "Examples:" "White"
-    Write-ColorOutput "  .\install-gpp.ps1                    # Standard installation" "Cyan"
-    Write-ColorOutput "  .\install-gpp.ps1 -SkipCMake        # Skip CMake" "Cyan"
-    Write-ColorOutput "  .\install-gpp.ps1 -Verbose          # Show available packages" "Cyan"
-    Write-ColorOutput ""
-    Write-ColorOutput "Alternative MinGW variants:" "White"
-    Write-ColorOutput "  BrechtSanders.WinLibs.POSIX.UCRT    # Default - POSIX threads, UCRT runtime" "White"
-    Write-ColorOutput "  BrechtSanders.WinLibs.MCF.UCRT      # MCF threads, UCRT runtime" "White"
-    Write-ColorOutput "  MartinStorsjo.LLVM-MinGW.UCRT       # LLVM/Clang based" "White"
-    exit 0
-}
-
-# Run the installation
-Install-GppToolchain
-
-# Clean up temporary file if it was created during auto-elevation
-if (-not [string]::IsNullOrEmpty($TempFile) -and (Test-Path $TempFile)) {
-    try {
-        Remove-Item $TempFile -Force -ErrorAction SilentlyContinue
-        Write-ColorOutput "Cleaned up temporary file." "Green"
+# Main execution with cleanup handling
+try {
+    # Show usage if help is requested
+    if ($args -contains "-h" -or $args -contains "--help" -or $args -contains "/?") {
+        Write-ColorOutput "Usage: .\install-gpp.ps1 [OPTIONS]" "Cyan"
+        Write-ColorOutput ""
+        Write-ColorOutput "Options:" "White"
+        Write-ColorOutput "  -SkipCMake          Skip CMake installation" "White"
+        Write-ColorOutput "  -Verbose            Show available MinGW packages before installation" "White"
+        Write-ColorOutput "  -MinGWVariant <id>  Specify MinGW package ID (default: BrechtSanders.WinLibs.POSIX.UCRT)" "White"
+        Write-ColorOutput ""
+        Write-ColorOutput "Examples:" "White"
+        Write-ColorOutput "  .\install-gpp.ps1                    # Standard installation" "Cyan"
+        Write-ColorOutput "  .\install-gpp.ps1 -SkipCMake        # Skip CMake" "Cyan"
+        Write-ColorOutput "  .\install-gpp.ps1 -Verbose          # Show available packages" "Cyan"
+        Write-ColorOutput ""
+        Write-ColorOutput "Alternative MinGW variants:" "White"
+        Write-ColorOutput "  BrechtSanders.WinLibs.POSIX.UCRT    # Default - POSIX threads, UCRT runtime" "White"
+        Write-ColorOutput "  BrechtSanders.WinLibs.MCF.UCRT      # MCF threads, UCRT runtime" "White"
+        Write-ColorOutput "  MartinStorsjo.LLVM-MinGW.UCRT       # LLVM/Clang based" "White"
+        exit 0
     }
-    catch {
-        # Silently ignore cleanup errors
+
+    # Run the installation
+    Install-GppToolchain
+}
+finally {
+    # Clean up temporary file if it was created during auto-elevation
+    if (-not [string]::IsNullOrEmpty($TempFile) -and (Test-Path $TempFile)) {
+        try {
+            Remove-Item $TempFile -Force -ErrorAction SilentlyContinue
+            Write-ColorOutput "Cleaned up temporary file." "Green"
+        }
+        catch {
+            # Silently ignore cleanup errors
+        }
     }
 }

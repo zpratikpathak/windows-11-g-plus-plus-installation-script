@@ -11,6 +11,8 @@ A PowerShell script to automatically install g++ (GCC) compiler on Windows using
 - ✅ **Environment Setup**: Automatically configures PATH variables
 - ✅ **Verification Testing**: Tests the installation with a sample compilation
 - ✅ **Multiple Installation Options**: Choose from different MinGW variants
+- ✅ **Robust Cleanup**: Automatically cleans up temporary files, even if interrupted
+- ✅ **Interruption Safe**: Handles Ctrl+C, window closing, and unexpected exits gracefully
 
 ## 📋 Prerequisites
 
