@@ -1,137 +1,24 @@
-# PowerShell Script to Install g++ (GCC) on Windows using winget
+# PowerShell Script to Install MinGW-w64 (g++) Compiler
+# This script automates the installation of MSYS2 and MinGW-w64 toolchain
+# Author: AI Assistant
+# Usage: Run as Administrator for best results, or as regular user for user-only installation
 
 param(
-    [switch]$SkipCMake,
-    [switch]$Verbose,
-    [string]$MinGWVariant = "BrechtSanders.WinLibs.POSIX.UCRT",
-    [string]$TempFile = ""
+    [switch]$SystemWide = $false,  # Install for all users (requires admin)
+    [switch]$UserOnly = $true,     # Install for current user only (default)
+    [switch]$SkipInstall = $false, # Skip installation if already installed
+    [switch]$Verbose = $false      # Show detailed output
 )
 
-# Register cleanup on script exit (handles Ctrl+C, window closing, etc.)
-if (-not [string]::IsNullOrEmpty($TempFile)) {
-    Register-EngineEvent -SourceIdentifier PowerShell.Exiting -Action {
-        if (Test-Path $using:TempFile) {
-            try {
-                Remove-Item $using:TempFile -Force -ErrorAction SilentlyContinue
-            }
-            catch {
-                # Silently ignore cleanup errors
-            }
-        }
-    } | Out-Null
-    
-    # Also register for Ctrl+C interruption
-    [Console]::TreatControlCAsInput = $false
-    $null = Register-ObjectEvent -InputObject ([Console]) -EventName CancelKeyPress -Action {
-        if (Test-Path $using:TempFile) {
-            try {
-                Remove-Item $using:TempFile -Force -ErrorAction SilentlyContinue
-            }
-            catch {
-                # Silently ignore cleanup errors
-            }
-        }
-    }
-}
+# Set error action preference
+$ErrorActionPreference = "Stop"
 
-# Function to check if running as administrator
-function Test-IsAdmin {
-    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
-    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-}
+# Colors for output
+$ColorSuccess = "Green"
+$ColorWarning = "Yellow"
+$ColorError = "Red"
+$ColorInfo = "Cyan"
 
-# Function to restart script as administrator
-function Start-AsAdmin {
-    if (-not (Test-IsAdmin)) {
-        Write-ColorOutput "This script requires administrator privileges to install software." "Yellow"
-        
-        # Check if script was run via irm | iex (no file path available)
-        if ([string]::IsNullOrEmpty($PSCommandPath)) {
-            Write-ColorOutput "Detected script was run via irm | iex method." "Yellow"
-            Write-ColorOutput "Downloading script temporarily and restarting as administrator..." "Yellow"
-            
-            try {
-                # Create a temporary file for the script
-                $tempScript = [System.IO.Path]::GetTempFileName() + ".ps1"
-                $scriptUrl = "https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1"
-                
-                # Download the script to temp location
-                Invoke-WebRequest -Uri $scriptUrl -OutFile $tempScript -UseBasicParsing
-                
-                # Mark file for deletion on reboot as a safety measure
-                try {
-                    # Use Windows API to mark file for deletion on next reboot (safety net)
-                    Add-Type -TypeDefinition @"
-                        using System;
-                        using System.Runtime.InteropServices;
-                        public class FileOperations {
-                            [DllImport("kernel32.dll", SetLastError=true)]
-                            public static extern bool MoveFileEx(string lpExistingFileName, string lpNewFileName, int dwFlags);
-                            public const int MOVEFILE_DELAY_UNTIL_REBOOT = 0x4;
-                        }
-"@
-                    [FileOperations]::MoveFileEx($tempScript, $null, [FileOperations]::MOVEFILE_DELAY_UNTIL_REBOOT)
-                }
-                catch {
-                    # Ignore if this fails - it's just a safety net
-                }
-                
-                # Build the command line arguments to pass to the elevated process
-                $argList = @("-ExecutionPolicy", "Bypass", "-File", "`"$tempScript`"")
-                if ($SkipCMake) { $argList += "-SkipCMake" }
-                if ($Verbose) { $argList += "-Verbose" }
-                if ($MinGWVariant -ne "BrechtSanders.WinLibs.POSIX.UCRT") { 
-                    $argList += "-MinGWVariant", "`"$MinGWVariant`"" 
-                }
-                
-                # Add cleanup parameter to remove temp file after execution
-                $argList += "-TempFile", "`"$tempScript`""
-                
-                # Start elevated process
-                Start-Process PowerShell -ArgumentList $argList -Verb RunAs -Wait
-                
-                # Clean up temp file if still exists
-                if (Test-Path $tempScript) {
-                    Remove-Item $tempScript -Force -ErrorAction SilentlyContinue
-                }
-                
-                exit 0
-            }
-            catch {
-                Write-ColorOutput "Failed to download and restart script: $($_.Exception.Message)" "Red"
-                Write-ColorOutput "Please try one of the manual methods from the README." "Red"
-                Write-ColorOutput "Press any key to exit..." "Yellow"
-                $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
-                exit 1
-            }
-        }
-        
-        Write-ColorOutput "Restarting script as administrator..." "Yellow"
-        
-        # Build the command line arguments to pass to the elevated process
-        $argList = @()
-        if ($SkipCMake) { $argList += "-SkipCMake" }
-        if ($Verbose) { $argList += "-Verbose" }
-        if ($MinGWVariant -ne "BrechtSanders.WinLibs.POSIX.UCRT") { 
-            $argList += "-MinGWVariant", "`"$MinGWVariant`"" 
-        }
-        
-        $argumentString = $argList -join " "
-        
-        try {
-            Start-Process PowerShell -ArgumentList "-ExecutionPolicy Bypass -File `"$PSCommandPath`" $argumentString" -Verb RunAs
-            exit 0
-        }
-        catch {
-            Write-ColorOutput "Failed to restart as administrator: $($_.Exception.Message)" "Red"
-            Write-ColorOutput "Please run this script manually as administrator." "Red"
-            exit 1
-        }
-    }
-}
-
-# Function to write colored output
 function Write-ColorOutput {
     param(
         [string]$Message,
@@ -140,11 +27,15 @@ function Write-ColorOutput {
     Write-Host $Message -ForegroundColor $Color
 }
 
-# Function to check if command exists
-function Test-Command {
-    param([string]$Command)
+function Test-Administrator {
+    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+    return $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+}
+
+function Test-WingetAvailable {
     try {
-        Get-Command $Command -ErrorAction Stop | Out-Null
+        $null = Get-Command winget -ErrorAction Stop
         return $true
     }
     catch {
@@ -152,247 +43,218 @@ function Test-Command {
     }
 }
 
-# Function to show progress animation
-function Show-ProgressAnimation {
+function Install-MSYS2 {
+    Write-ColorOutput "=== Installing MSYS2 (MinGW-w64 Base) ===" $ColorInfo
+    
+    if (-not (Test-WingetAvailable)) {
+        Write-ColorOutput "ERROR: winget is not available. Please install App Installer from Microsoft Store." $ColorError
+        throw "winget not found"
+    }
+    
+    try {
+        Write-ColorOutput "Installing MSYS2 via winget..." $ColorInfo
+        $result = winget install --id=MSYS2.MSYS2 -e --accept-source-agreements --accept-package-agreements
+        
+        if ($LASTEXITCODE -eq 0) {
+            Write-ColorOutput "[OK] MSYS2 installed successfully!" $ColorSuccess
+        } else {
+            throw "winget install failed with exit code $LASTEXITCODE"
+        }
+    }
+    catch {
+        Write-ColorOutput "ERROR: Failed to install MSYS2: $($_.Exception.Message)" $ColorError
+        throw
+    }
+}
+
+function Install-MinGWToolchain {
+    Write-ColorOutput "=== Installing MinGW-w64 GCC Toolchain ===" $ColorInfo
+    
+    $msys2PacmanPath = "C:\msys64\usr\bin\pacman.exe"
+    
+    if (-not (Test-Path $msys2PacmanPath)) {
+        Write-ColorOutput "ERROR: MSYS2 pacman not found at $msys2PacmanPath" $ColorError
+        throw "MSYS2 not properly installed"
+    }
+    
+    try {
+        Write-ColorOutput "Installing GCC compiler via pacman..." $ColorInfo
+        $result = & $msys2PacmanPath -S --noconfirm mingw-w64-ucrt-x86_64-gcc
+        
+        if ($LASTEXITCODE -eq 0) {
+            Write-ColorOutput "[OK] MinGW-w64 GCC toolchain installed successfully!" $ColorSuccess
+        } else {
+            throw "pacman install failed with exit code $LASTEXITCODE"
+        }
+    }
+    catch {
+        Write-ColorOutput "ERROR: Failed to install MinGW-w64 toolchain: $($_.Exception.Message)" $ColorError
+        throw
+    }
+}
+
+function Add-ToPath {
     param(
-        [string]$Message,
-        [scriptblock]$ScriptBlock,
-        [int]$TimeoutMinutes = 10
+        [string]$PathToAdd,
+        [bool]$SystemWide = $false
     )
     
-    $job = Start-Job -ScriptBlock $ScriptBlock
-    $spinner = @('|', '/', '-', '\')
-    $spinnerIndex = 0
-    $startTime = Get-Date
+    $target = if ($SystemWide) { [EnvironmentVariableTarget]::Machine } else { [EnvironmentVariableTarget]::User }
+    $targetName = if ($SystemWide) { "System" } else { "User" }
     
-    Write-Host "$Message " -NoNewline
+    Write-ColorOutput "=== Updating $targetName PATH Environment Variable ===" $ColorInfo
     
-    while ($job.State -eq 'Running') {
-        $elapsed = (Get-Date) - $startTime
-        $minutes = [math]::Floor($elapsed.TotalMinutes)
-        $seconds = [math]::Floor($elapsed.TotalSeconds % 60)
+    try {
+        $currentPath = [Environment]::GetEnvironmentVariable("Path", $target)
         
-        Write-Host "`r$Message $($spinner[$spinnerIndex]) ($($minutes)m $($seconds)s)" -NoNewline -ForegroundColor Yellow
-        $spinnerIndex = ($spinnerIndex + 1) % $spinner.Length
-        Start-Sleep -Milliseconds 250
+        if ($currentPath -like "*$PathToAdd*") {
+            Write-ColorOutput "[OK] Path already contains $PathToAdd" $ColorWarning
+            return
+        }
         
-        # Timeout check
-        if ($elapsed.TotalMinutes -gt $TimeoutMinutes) {
-            Stop-Job $job
-            Remove-Job $job
-            Write-Host "`r$Message [TIMEOUT]" -ForegroundColor Red
-            throw "Operation timed out after $TimeoutMinutes minutes"
+        $newPath = if ($currentPath.EndsWith(";")) { 
+            $currentPath + $PathToAdd 
+        } else { 
+            $currentPath + ";" + $PathToAdd 
+        }
+        
+        [Environment]::SetEnvironmentVariable("Path", $newPath, $target)
+        Write-ColorOutput "[OK] Successfully added $PathToAdd to $targetName PATH" $ColorSuccess
+        
+        # Also update current session
+        $env:PATH = $env:PATH + ";" + $PathToAdd
+        Write-ColorOutput "[OK] Updated current session PATH" $ColorSuccess
+        
+    }
+    catch {
+        Write-ColorOutput "ERROR: Failed to update PATH: $($_.Exception.Message)" $ColorError
+        if ($_.Exception.Message -like "*registry access*") {
+            Write-ColorOutput "HINT: Run as Administrator to modify System PATH, or use -UserOnly flag" $ColorWarning
+        }
+        throw
+    }
+}
+
+function Test-GccInstallation {
+    Write-ColorOutput "=== Verifying Installation ===" $ColorInfo
+    
+    $gccPath = "C:\msys64\ucrt64\bin\g++.exe"
+    
+    if (-not (Test-Path $gccPath)) {
+        Write-ColorOutput "ERROR: g++.exe not found at $gccPath" $ColorError
+        return $false
+    }
+    
+    try {
+        # Test g++ in current session
+        $version = & "C:\msys64\ucrt64\bin\g++.exe" --version 2>&1 | Select-Object -First 1
+        Write-ColorOutput "[OK] g++ is working: $version" $ColorSuccess
+        
+        # Test if g++ is in PATH
+        try {
+            $pathVersion = & g++ --version 2>&1 | Select-Object -First 1
+            Write-ColorOutput "[OK] g++ is accessible via PATH: $pathVersion" $ColorSuccess
+        }
+        catch {
+            Write-ColorOutput "[WARN] g++ installed but not in PATH. You may need to restart your terminal." $ColorWarning
+        }
+        
+        return $true
+    }
+    catch {
+        Write-ColorOutput "ERROR: g++ is installed but not working properly: $($_.Exception.Message)" $ColorError
+        return $false
+    }
+}
+
+function Show-CompletionMessage {
+    Write-ColorOutput "" 
+    Write-ColorOutput "=== Installation Complete! ===" $ColorSuccess
+    Write-ColorOutput ""
+    Write-ColorOutput "Next Steps:" $ColorInfo
+    Write-ColorOutput "1. Restart your terminal/IDE to pick up PATH changes" $ColorInfo
+    Write-ColorOutput "2. Test installation by running: g++ --version" $ColorInfo
+    Write-ColorOutput "3. Your Python test case generator should now work!" $ColorInfo
+    Write-ColorOutput ""
+    Write-ColorOutput "If g++ is still not recognized after restarting:" $ColorWarning
+    Write-ColorOutput "- Run this script with -SystemWide flag as Administrator" $ColorWarning
+    Write-ColorOutput "- Or manually add C:\msys64\ucrt64\bin to your PATH" $ColorWarning
+    Write-ColorOutput ""
+}
+
+# Main execution
+try {
+    Write-ColorOutput "=== MinGW-w64 (g++) Installation Script ===" $ColorInfo
+    Write-ColorOutput "PowerShell version: $($PSVersionTable.PSVersion)" $ColorInfo
+    
+    # Check if running as administrator
+    $isAdmin = Test-Administrator
+    if ($isAdmin) {
+        Write-ColorOutput "[OK] Running as Administrator" $ColorSuccess
+    } else {
+        Write-ColorOutput "[WARN] Running as regular user" $ColorWarning
+        if ($SystemWide) {
+            Write-ColorOutput "ERROR: -SystemWide requires Administrator privileges" $ColorError
+            exit 1
         }
     }
     
-    $result = Receive-Job $job
-    Remove-Job $job
-    
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "`r$Message [COMPLETED]" -ForegroundColor Green
-    } else {
-        Write-Host "`r$Message [FAILED]" -ForegroundColor Red
-    }
-    
-    return $result
-}
-
-# Function to refresh environment variables
-function Update-SessionEnvironment {
-    Write-ColorOutput "Refreshing environment variables..." "Yellow"
-    $env:PATH = [System.Environment]::GetEnvironmentVariable("PATH", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("PATH", "User")
-    Write-ColorOutput "Environment variables refreshed successfully!" "Green"
-}
-
-# Main installation function
-function Install-GppToolchain {
-    # Check for administrator privileges first
-    Start-AsAdmin
-    
-    Write-ColorOutput "=== g++ Installation Script for Windows ===" "Cyan"
-    Write-ColorOutput "This script will install g++ (GCC) compiler using winget" "White"
-    Write-ColorOutput "Running with administrator privileges." "Green"
-    Write-ColorOutput ""
-
-    # Check if winget is available
-    if (-not (Test-Command "winget")) {
-        Write-ColorOutput "ERROR: winget is not available on this system!" "Red"
-        Write-ColorOutput "Please install App Installer from Microsoft Store or update Windows." "Red"
-        exit 1
-    }
-
-    # Check if g++ is already installed
-    if (Test-Command "g++") {
-        Write-ColorOutput "g++ is already installed:" "Green"
-        try {
-            $version = g++ --version 2>$null | Select-Object -First 1
-            Write-ColorOutput $version "Green"
-            $response = Read-Host "Do you want to reinstall? (y/N)"
-            if ($response -ne "y" -and $response -ne "Y") {
-                Write-ColorOutput "Installation cancelled." "Yellow"
+    # Check if already installed
+    if (-not $SkipInstall) {
+        $gccExists = Test-Path "C:\msys64\ucrt64\bin\g++.exe"
+        if ($gccExists) {
+            Write-ColorOutput "[WARN] MinGW-w64 appears to already be installed." $ColorWarning
+            $response = Read-Host "Continue anyway? (y/N)"
+            if ($response -notmatch "^[yY]") {
+                Write-ColorOutput "Installation cancelled by user." $ColorInfo
                 exit 0
             }
         }
-        catch {
-            Write-ColorOutput "g++ found but version check failed. Proceeding with installation..." "Yellow"
-        }
     }
-
-    try {
-        # Step 1: Install CMake (optional)
-        if (-not $SkipCMake) {
-            Write-ColorOutput "Step 1: Installing CMake..." "Yellow"
-            winget install -e --id=Kitware.CMake --accept-package-agreements --accept-source-agreements
-            if ($LASTEXITCODE -eq 0) {
-                Write-ColorOutput "[SUCCESS] CMake installed successfully!" "Green"
-            } else {
-                Write-ColorOutput "[WARNING] CMake installation failed or was skipped (may already be installed)" "Yellow"
-            }
-        } else {
-            Write-ColorOutput "Step 1: Skipping CMake installation (-SkipCMake specified)" "Yellow"
-        }
-
-        # Step 2: Show available MinGW options
-        if ($Verbose) {
-            Write-ColorOutput "Step 2: Available MinGW packages:" "Yellow"
-            winget search mingw
-            Write-ColorOutput ""
-        }
-
-        # Step 3: Install MinGW-w64
-        Write-ColorOutput "Step 3: Installing MinGW-w64 ($MinGWVariant)..." "Yellow"
-        Write-ColorOutput "===============================================" "Magenta"
-        Write-ColorOutput "⚠️  PLEASE WAIT: This may take a few minutes as it downloads ~250MB" "Magenta"
-        Write-ColorOutput "===============================================" "Magenta"
+    
+    # Installation steps
+    Write-ColorOutput ""
+    Write-ColorOutput "Starting installation process..." $ColorInfo
+    Write-ColorOutput ""
+    
+    # Step 1: Install MSYS2
+    if (-not $SkipInstall) {
+        Install-MSYS2
         Write-ColorOutput ""
-        
-        try {
-            Show-ProgressAnimation -Message "Downloading and installing MinGW-w64" -ScriptBlock {
-                winget install -e --id=$using:MinGWVariant --accept-package-agreements --accept-source-agreements --silent
-            } -TimeoutMinutes 15
-            
-            if ($LASTEXITCODE -eq 0) {
-                Write-ColorOutput "`n[SUCCESS] MinGW-w64 installed successfully!" "Green"
-            } else {
-                Write-ColorOutput "`n[ERROR] MinGW-w64 installation failed!" "Red"
-                exit 1
-            }
-        }
-        catch {
-            Write-ColorOutput "`n[ERROR] MinGW-w64 installation failed with error: $($_.Exception.Message)" "Red"
-            exit 1
-        }
-
-        # Step 4: Refresh environment variables
-        Write-ColorOutput "Step 4: Refreshing environment variables..." "Yellow"
-        Update-SessionEnvironment
-        
-        # Step 5: Verify installation
-        Write-ColorOutput "Step 5: Verifying g++ installation..." "Yellow"
-        
-        # Try to get g++ version
-        try {
-            $gppVersion = g++ --version 2>$null | Select-Object -First 1
-            Write-ColorOutput "[SUCCESS] g++ installed successfully!" "Green"
-            Write-ColorOutput "Version: $gppVersion" "Green"
-        }
-        catch {
-            Write-ColorOutput "[WARNING] g++ command not found in current session." "Yellow"
-            Write-ColorOutput "Please restart your PowerShell session or open a new terminal." "Yellow"
-            Write-ColorOutput "Then run: g++ --version" "White"
-        }
-
-        # Step 6: Test compilation
-        Write-ColorOutput "Step 6: Testing compilation..." "Yellow"
-        
-        $testCode = '#include <iostream>' + "`n" + 'int main() {' + "`n" + '    std::cout << "Hello, g++!" << std::endl;' + "`n" + '    return 0;' + "`n" + '}'
-        $testFile = "test_gpp.cpp"
-        $testExe = "test_gpp.exe"
-        
-        try {
-            # Create test file
-            $testCode | Out-File -FilePath $testFile -Encoding UTF8
-            
-            # Compile test file
-            g++ -std=c++17 $testFile -o $testExe 2>$null
-            
-            if (Test-Path $testExe) {
-                Write-ColorOutput "[SUCCESS] Test compilation successful!" "Green"
-                
-                # Run test executable
-                $output = & ".\$testExe" 2>$null
-                if ($output -eq "Hello, g++!") {
-                    Write-ColorOutput "[SUCCESS] Test execution successful: $output" "Green"
-                }
-                
-                # Clean up test files
-                Remove-Item $testFile, $testExe -ErrorAction SilentlyContinue
-            } else {
-                Write-ColorOutput "[WARNING] Test compilation failed - g++ may not be in PATH yet" "Yellow"
-                Write-ColorOutput "Please restart your terminal and try: g++ --version" "White"
-            }
-        }
-        catch {
-            Write-ColorOutput "[WARNING] Test compilation encountered an error" "Yellow"
-            Write-ColorOutput "Error: $($_.Exception.Message)" "Red"
-        }
-
-        Write-ColorOutput ""
-        Write-ColorOutput "=== Installation Summary ===" "Cyan"
-        Write-ColorOutput "[SUCCESS] MinGW-w64 installed" "Green"
-        if (-not $SkipCMake) { Write-ColorOutput "[SUCCESS] CMake installed" "Green" }
-        Write-ColorOutput "[SUCCESS] Environment variables updated" "Green"
-        Write-ColorOutput ""
-        Write-ColorOutput "You can now use these commands:" "White"
-        Write-ColorOutput "  g++ -std=c++17 myfile.cpp -o myprogram.exe" "Cyan"
-        Write-ColorOutput "  gcc -std=c11 myfile.c -o myprogram.exe" "Cyan"
-        Write-ColorOutput "  gdb myprogram.exe  (for debugging)" "Cyan"
-        Write-ColorOutput ""
-        Write-ColorOutput "If g++ is not recognized, please restart your terminal!" "Yellow"
-
     }
-    catch {
-        Write-ColorOutput "[ERROR] Installation failed with error:" "Red"
-        Write-ColorOutput $_.Exception.Message "Red"
-        exit 1
+    
+    # Step 2: Install MinGW-w64 toolchain
+    if (-not $SkipInstall) {
+        Install-MinGWToolchain
+        Write-ColorOutput ""
     }
+    
+    # Step 3: Update PATH
+    $mingwBinPath = "C:\msys64\ucrt64\bin"
+    Add-ToPath -PathToAdd $mingwBinPath -SystemWide $SystemWide
+    Write-ColorOutput ""
+    
+    # Step 4: Verify installation
+    $installSuccess = Test-GccInstallation
+    Write-ColorOutput ""
+    
+    if ($installSuccess) {
+        Show-CompletionMessage
+    } else {
+        Write-ColorOutput "Installation completed but verification failed. Please check manually." $ColorWarning
+    }
+    
 }
-
-# Main execution with cleanup handling
-try {
-    # Show usage if help is requested
-    if ($args -contains "-h" -or $args -contains "--help" -or $args -contains "/?") {
-        Write-ColorOutput "Usage: .\install-gpp.ps1 [OPTIONS]" "Cyan"
-        Write-ColorOutput ""
-        Write-ColorOutput "Options:" "White"
-        Write-ColorOutput "  -SkipCMake          Skip CMake installation" "White"
-        Write-ColorOutput "  -Verbose            Show available MinGW packages before installation" "White"
-        Write-ColorOutput "  -MinGWVariant <id>  Specify MinGW package ID (default: BrechtSanders.WinLibs.POSIX.UCRT)" "White"
-        Write-ColorOutput ""
-        Write-ColorOutput "Examples:" "White"
-        Write-ColorOutput "  .\install-gpp.ps1                    # Standard installation" "Cyan"
-        Write-ColorOutput "  .\install-gpp.ps1 -SkipCMake        # Skip CMake" "Cyan"
-        Write-ColorOutput "  .\install-gpp.ps1 -Verbose          # Show available packages" "Cyan"
-        Write-ColorOutput ""
-        Write-ColorOutput "Alternative MinGW variants:" "White"
-        Write-ColorOutput "  BrechtSanders.WinLibs.POSIX.UCRT    # Default - POSIX threads, UCRT runtime" "White"
-        Write-ColorOutput "  BrechtSanders.WinLibs.MCF.UCRT      # MCF threads, UCRT runtime" "White"
-        Write-ColorOutput "  MartinStorsjo.LLVM-MinGW.UCRT       # LLVM/Clang based" "White"
-        exit 0
-    }
-
-    # Run the installation
-    Install-GppToolchain
-}
-finally {
-    # Clean up temporary file if it was created during auto-elevation
-    if (-not [string]::IsNullOrEmpty($TempFile) -and (Test-Path $TempFile)) {
-        try {
-            Remove-Item $TempFile -Force -ErrorAction SilentlyContinue
-            Write-ColorOutput "Cleaned up temporary file." "Green"
-        }
-        catch {
-            # Silently ignore cleanup errors
-        }
-    }
+catch {
+    Write-ColorOutput "" 
+    Write-ColorOutput "=== Installation Failed ===" $ColorError
+    Write-ColorOutput "Error: $($_.Exception.Message)" $ColorError
+    Write-ColorOutput ""
+    Write-ColorOutput "Troubleshooting:" $ColorInfo
+    Write-ColorOutput "1. Make sure you have internet connection" $ColorInfo
+    Write-ColorOutput "2. Try running as Administrator" $ColorInfo
+    Write-ColorOutput "3. Check if winget is available (Windows 10 1809+ required)" $ColorInfo
+    Write-ColorOutput "4. Manual installation: https://www.mingw-w64.org/" $ColorInfo
+    
+    exit 1
 }
