@@ -1,215 +1,194 @@
-# Windows G++ Installation Script
+# Windows 10/11 (g++) Compiler Installation Scripts
 
-A PowerShell script to automatically install g++ (GCC) compiler on Windows using winget. This script handles administrator privileges, provides visual progress feedback, and sets up a complete C++ development environment.
+This repository contains automated scripts to install MinGW-w64 (g++) compiler on Windows systems.
 
-## 🚀 Features
+## 🚀 Quick Start (One-Liner Installation)
 
-- ✅ **Automatic Admin Elevation**: Automatically requests administrator privileges if needed
-- ✅ **Progress Indicators**: Visual progress bar during downloads
-- ✅ **MinGW-w64 Installation**: Installs the latest GCC compiler
-- ✅ **CMake Support**: Optional CMake installation for build systems
-- ✅ **Environment Setup**: Automatically configures PATH variables
-- ✅ **Verification Testing**: Tests the installation with a sample compilation
-- ✅ **Multiple Installation Options**: Choose from different MinGW variants
-- ✅ **Robust Cleanup**: Automatically cleans up temporary files, even if interrupted
-- ✅ **Interruption Safe**: Handles Ctrl+C, window closing, and unexpected exits gracefully
+### Option 1: Direct Installation from GitHub (Recommended)
 
-## 📋 Prerequisites
-
-- Windows 10/11
-- PowerShell 5.1 or later
-- Internet connection
-- Windows Package Manager (winget) - comes pre-installed on Windows 11 and newer Windows 10 versions
-
-## 🔧 Execution Policy Setup
-
-If you encounter execution policy errors, you may need to allow script execution:
-
-### Temporary Solution (Recommended)
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process
-```
-
-### Permanent Solution (Use with caution)
-```powershell
-Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope CurrentUser
-```
-
-**Note**: The temporary solution only affects the current PowerShell session and is safer.
-
-## ⚡ Quick Installation
-
-### Method 1: One-Line Install (Recommended)
-
-Open PowerShell (normal mode) and run:
+**Copy and paste this command into PowerShell:**
 
 ```powershell
 irm https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1 | iex
 ```
 
+This command will:
+- Download the installation script directly from GitHub
+- Execute it immediately 
+- Install g++ for the current user (no admin required)
+- No need to clone the repository
 
-### Method 2: Download and Run
+**Requirements for one-liner:**
+- Windows PowerShell 5.1+ or PowerShell Core 7+
+- Internet connection
+- Execution policy that allows remote scripts
 
-1. Download the script:
-   ```powershell
-   Invoke-WebRequest -Uri "https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1" -OutFile "install.ps1"
+**If you get execution policy errors:**
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+**For system-wide installation (requires admin):**
+```powershell
+irm https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1 | iex -Args "-SystemWide"
+```
+
+**Alternative one-liner with parameter:**
+```powershell
+# User-only installation (default)
+iwr -useb https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1 | iex
+
+# System-wide installation
+iwr -useb https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1 | iex -Args "-SystemWide"
+```
+
+> **🔒 Security Note:** The one-liner downloads and executes a script from the internet. While convenient, always verify the source and content before running. You can inspect the script first by visiting the GitHub URL in your browser.
+
+### Option 2: Download and Run Locally
+
+```powershell
+# Download the repository first, then run:
+
+# Run as regular user (installs for current user only)
+.\install-gcc.ps1
+
+# Run as Administrator (installs system-wide)
+.\install-gcc.ps1 -SystemWide
+
+# Skip installation if already installed, just fix PATH
+.\install-gcc.ps1 -SkipInstall
+```
+
+### Option 3: Batch Script (Simple)
+
+```cmd
+# Double-click or run from command prompt
+install-gcc.bat
+```
+
+## What These Scripts Do
+
+1. **Install MSYS2** via winget (Microsoft package manager)
+2. **Install MinGW-w64 GCC toolchain** via MSYS2's pacman package manager
+3. **Add compiler to PATH** environment variable
+4. **Verify installation** by testing g++ command
+
+## Requirements
+
+- Windows 10 version 1809 or later (for winget)
+- Internet connection
+- Administrator privileges (recommended, but not required for user-only installation)
+
+## Script Options
+
+### PowerShell Script Parameters
+
+| Parameter | Description | Default |
+|-----------|-------------|---------|
+| `-SystemWide` | Install for all users (requires admin) | `false` |
+| `-UserOnly` | Install for current user only | `true` |
+| `-SkipInstall` | Skip installation, just fix PATH | `false` |
+| `-Verbose` | Show detailed output | `false` |
+
+### Examples
+
+**One-liner installations:**
+```powershell
+# Quick install (user-only)
+irm https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1 | iex
+
+# System-wide install (as admin)
+irm https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1 | iex -Args "-SystemWide"
+```
+
+**Local script executions:**
+```powershell
+# Install for current user only (no admin required)
+.\install-gcc.ps1 -UserOnly
+
+# Install system-wide (requires admin)
+.\install-gcc.ps1 -SystemWide
+
+# Just fix PATH if already installed
+.\install-gcc.ps1 -SkipInstall
+
+# Verbose output
+.\install-gcc.ps1 -Verbose
+```
+
+## After Installation
+
+1. **Restart your terminal/IDE** to pick up PATH changes
+2. **Test the installation**:
+   ```bash
+   g++ --version
    ```
+3. **Run your Python test case generator** - it should now work!
 
-2. Run the script:
-   ```powershell
-   .\install.ps1
-   ```
+## Troubleshooting
 
-### Method 3: Manual Download
+### "g++ is not recognized"
+- Restart your terminal/IDE completely
+- Try running the script as Administrator
+- Check if `C:\msys64\ucrt64\bin` is in your PATH
 
-1. Download `install.ps1` from: https://github.com/zpratikpathak/windows-11-g-plus-plus-installation-script/blob/home/install.ps1
-2. Save it to your desired location
-3. Open PowerShell in that directory
-4. Run: `.\install.ps1`
+### "winget is not available"
+- Install "App Installer" from Microsoft Store
+- Update Windows to the latest version
 
+### "Access denied" errors
+- Run PowerShell as Administrator
+- Or use `-UserOnly` flag for user-only installation
 
+### Execution Policy Issues (PowerShell)
+- Run: `Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope CurrentUser`
+- Or use the batch script instead
 
-## 📝 Usage Options
+## Manual Installation
 
-### Basic Installation
+If the scripts don't work, you can install manually:
+
+1. Download MSYS2 from: https://www.mingw-w64.org/
+2. Install MinGW-w64 toolchain
+3. Add `C:\msys64\ucrt64\bin` to your PATH
+
+## What Gets Installed
+
+- **MSYS2**: Development environment for Windows
+- **MinGW-w64**: Minimalist GNU for Windows (64-bit)
+- **GCC**: GNU Compiler Collection
+- **g++**: C++ compiler
+- **Supporting libraries**: All necessary dependencies
+
+## File Locations
+
+After installation:
+- MSYS2: `C:\msys64\`
+- Compiler: `C:\msys64\ucrt64\bin\g++.exe`
+- Libraries: `C:\msys64\ucrt64\lib\`
+- Headers: `C:\msys64\ucrt64\include\`
+
+## Uninstallation
+
+To remove the compiler:
+1. Uninstall MSYS2 via Windows Settings → Apps
+2. Remove `C:\msys64\ucrt64\bin` from your PATH
+3. Delete `C:\msys64` directory if it remains
+
+## 🎯 TL;DR - Just Want g++ Working?
+
+**Copy this into PowerShell and press Enter:**
 ```powershell
-.\install.ps1
+irm https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1 | iex
 ```
 
-### Skip CMake Installation
-```powershell
-.\install.ps1 -SkipCMake
-```
-
-### Verbose Mode (Show available packages)
-```powershell
-.\install.ps1 -Verbose
-```
-
-### Custom MinGW Variant
-```powershell
-.\install.ps1 -MinGWVariant "BrechtSanders.WinLibs.MCF.UCRT"
-```
-
-### Combined Options
-```powershell
-.\install.ps1 -SkipCMake -Verbose
-```
-
-## 🎯 Available MinGW Variants
-
-| Variant | Description | Recommended For |
-|---------|-------------|-----------------|
-| `BrechtSanders.WinLibs.POSIX.UCRT` | **Default** - POSIX threads, UCRT runtime | General development |
-| `BrechtSanders.WinLibs.MCF.UCRT` | MCF threads, UCRT runtime | Advanced threading |
-| `MartinStorsjo.LLVM-MinGW.UCRT` | LLVM/Clang based | LLVM ecosystem |
-
-## 📖 Command Line Parameters
-
-| Parameter | Type | Description | Default |
-|-----------|------|-------------|---------|
-| `-SkipCMake` | Switch | Skip CMake installation | `false` |
-| `-Verbose` | Switch | Show available MinGW packages | `false` |
-| `-MinGWVariant` | String | Specify MinGW package ID | `BrechtSanders.WinLibs.POSIX.UCRT` |
-
-## 🔍 What Gets Installed
-
-1. **MinGW-w64**: Complete GCC compiler suite including:
-   - `gcc` - C compiler
-   - `g++` - C++ compiler
-   - `gdb` - GNU debugger
-   - Standard libraries and headers
-
-2. **CMake** (optional): Cross-platform build system
-
-3. **Environment Configuration**: Automatic PATH setup
-
-## ✅ Verification
-
-After installation, verify everything works:
-
-```powershell
-# Check compiler version
+**Then restart your terminal and test:**
+```bash
 g++ --version
-
-# Check CMake (if installed)
-cmake --version
-
-# Compile a test program
-echo '#include <iostream>' > test.cpp
-echo 'int main() { std::cout << "Hello World!" << std::endl; return 0; }' >> test.cpp
-g++ -std=c++17 test.cpp -o test.exe
-.\test.exe
 ```
 
-## 🛠️ Example Usage
+That's it! 🎉
 
-### Compile a Simple C++ Program
-```powershell
-g++ -std=c++17 myprogram.cpp -o myprogram.exe
-```
+## License
 
-### Compile with Debug Information
-```powershell
-g++ -std=c++17 -g myprogram.cpp -o myprogram.exe
-```
-
-### Using CMake
-```powershell
-mkdir build
-cd build
-cmake ..
-cmake --build .
-```
-
-## 🐛 Troubleshooting
-
-### UAC Prompt Appears and Disappears
-- **Issue**: UAC prompt shows briefly then disappears when using `irm | iex`
-- **Cause**: Script is automatically handling elevation (this is normal behavior)
-- **Solution**: Wait for the UAC prompt and click "Yes" - the script will continue in an elevated session
-
-### Script Won't Run
-- **Issue**: "Execution policy" error
-- **Solution**: Run `Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope Process`
-
-### g++ Not Found After Installation
-- **Issue**: `g++` command not recognized
-- **Solution**: Restart your PowerShell/Command Prompt or reboot your computer
-
-### Download Fails
-- **Issue**: Network or firewall blocking download
-- **Solution**: Try manual download method or check your internet connection
-
-### Installation Hangs
-- **Issue**: Download appears stuck
-- **Solution**: Wait up to 15 minutes (large download ~250MB) or restart the script
-
-## 🔒 Security Notes
-
-- This script automatically elevates to administrator privileges (required for software installation)
-- Only downloads software from official Microsoft winget repositories
-- All packages are verified and signed
-
-## 📜 License
-
-This project is open source. Feel free to modify and distribute.
-
-## 🤝 Contributing
-
-Found a bug or want to improve the script? 
-1. Fork the repository
-2. Create your feature branch
-3. Submit a pull request
-
-## 📞 Support
-
-If you encounter issues:
-1. Check the troubleshooting section above
-2. Ensure you have the latest version of Windows
-3. Verify winget is installed: `winget --version`
-4. Open an issue on GitHub with error details
-
----
-
-**Happy Coding! 🎉**
+These scripts are provided as-is for educational purposes. MinGW-w64 and GCC are licensed under their respective open-source licenses.
