@@ -1,6 +1,27 @@
-# MinGW-w64 (g++) Compiler Installation Scripts
+# Windows 10/11 (g++) Compiler Installation Scripts
 
 This repository contains automated scripts to install MinGW-w64 (g++) compiler on Windows systems.
+
+## 📚 Table of Contents
+
+- [🚀 Quick Start (One-Liner Installation)](#-quick-start-one-liner-installation)
+  - [Option 1: Direct Installation from GitHub (Recommended)](#option-1-direct-installation-from-github-recommended)
+  - [Option 2: Download and Run Locally](#option-2-download-and-run-locally)
+  - [Option 3: Batch Script (Simple)](#option-3-batch-script-simple)
+- [⚙️ What These Scripts Do](#️-what-these-scripts-do)
+- [📋 Requirements](#-requirements)
+- [🛠️ Script Options](#️-script-options)
+  - [PowerShell Script Parameters](#powershell-script-parameters)
+  - [Examples](#examples)
+- [✅ After Installation](#-after-installation)
+- [🔧 Troubleshooting](#-troubleshooting)
+- [📂 What Gets Installed](#-what-gets-installed)
+- [📍 File Locations](#-file-locations)
+- [🗑️ Uninstallation](#️-uninstallation)
+  - [Automated Uninstall (Recommended)](#automated-uninstall-recommended)
+  - [Manual Uninstall](#manual-uninstall)
+- [🎯 TL;DR - Just Want g++ Working?](#-tldr---just-want-g-working)
+- [📄 License](#-license)
 
 ## 🚀 Quick Start (One-Liner Installation)
 
@@ -66,20 +87,20 @@ iwr -useb https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus
 install-gcc.bat
 ```
 
-## What These Scripts Do
+## ⚙️ What These Scripts Do
 
 1. **Install MSYS2** via winget (Microsoft package manager)
 2. **Install MinGW-w64 GCC toolchain** via MSYS2's pacman package manager
 3. **Add compiler to PATH** environment variable
 4. **Verify installation** by testing g++ command
 
-## Requirements
+## 📋 Requirements
 
 - Windows 10 version 1809 or later (for winget)
 - Internet connection
 - Administrator privileges (recommended, but not required for user-only installation)
 
-## Script Options
+## 🛠️ Script Options
 
 ### PowerShell Script Parameters
 
@@ -116,7 +137,7 @@ irm https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-insta
 .\install-gcc.ps1 -Verbose
 ```
 
-## After Installation
+## ✅ After Installation
 
 1. **Restart your terminal/IDE** to pick up PATH changes
 2. **Test the installation**:
@@ -125,7 +146,7 @@ irm https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-insta
    ```
 3. **Run your Python test case generator** - it should now work!
 
-## Troubleshooting
+## 🔧 Troubleshooting
 
 ### "g++ is not recognized"
 - Restart your terminal/IDE completely
@@ -152,7 +173,7 @@ If the scripts don't work, you can install manually:
 2. Install MinGW-w64 toolchain
 3. Add `C:\msys64\ucrt64\bin` to your PATH
 
-## What Gets Installed
+## 📂 What Gets Installed
 
 - **MSYS2**: Development environment for Windows
 - **MinGW-w64**: Minimalist GNU for Windows (64-bit)
@@ -160,7 +181,7 @@ If the scripts don't work, you can install manually:
 - **g++**: C++ compiler
 - **Supporting libraries**: All necessary dependencies
 
-## File Locations
+## 📍 File Locations
 
 After installation:
 - MSYS2: `C:\msys64\`
@@ -168,7 +189,7 @@ After installation:
 - Libraries: `C:\msys64\ucrt64\lib\`
 - Headers: `C:\msys64\ucrt64\include\`
 
-## Uninstallation
+## 🗑️ Uninstallation
 
 ### Automated Uninstall (Recommended)
 
@@ -219,6 +240,6 @@ g++ --version
 
 That's it! 🎉
 
-## License
+## 📄 License
 
 These scripts are provided as-is for educational purposes. MinGW-w64 and GCC are licensed under their respective open-source licenses.
