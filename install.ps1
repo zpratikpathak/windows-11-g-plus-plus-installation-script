@@ -1,6 +1,6 @@
 # PowerShell Script to Install MinGW-w64 (g++) Compiler
 # This script automates the installation of MSYS2 and MinGW-w64 toolchain
-# Author: AI Assistant
+# Author: Pratik Pathak
 # Usage: Run as Administrator for best results, or as regular user for user-only installation
 
 param(
@@ -71,25 +71,44 @@ function Install-MinGWToolchain {
     Write-ColorOutput "=== Installing MinGW-w64 GCC Toolchain ===" $ColorInfo
     
     $msys2PacmanPath = "C:\msys64\usr\bin\pacman.exe"
+    $gccPath = "C:\msys64\ucrt64\bin\g++.exe"
     
     if (-not (Test-Path $msys2PacmanPath)) {
         Write-ColorOutput "ERROR: MSYS2 pacman not found at $msys2PacmanPath" $ColorError
         throw "MSYS2 not properly installed"
     }
     
+    # Check if GCC is already installed
+    if (Test-Path $gccPath) {
+        Write-ColorOutput "[OK] MinGW-w64 GCC is already installed, skipping installation." $ColorSuccess
+        return
+    }
+    
     try {
         Write-ColorOutput "Installing GCC compiler via pacman..." $ColorInfo
-        $result = & $msys2PacmanPath -S --noconfirm mingw-w64-ucrt-x86_64-gcc
+        $result = & $msys2PacmanPath -S --noconfirm mingw-w64-ucrt-x86_64-gcc 2>&1
         
         if ($LASTEXITCODE -eq 0) {
             Write-ColorOutput "[OK] MinGW-w64 GCC toolchain installed successfully!" $ColorSuccess
         } else {
-            throw "pacman install failed with exit code $LASTEXITCODE"
+            # Check if GCC was installed despite error (sometimes pacman succeeds but returns non-zero)
+            if (Test-Path $gccPath) {
+                Write-ColorOutput "[OK] MinGW-w64 GCC toolchain detected despite pacman error." $ColorSuccess
+            } else {
+                Write-ColorOutput "ERROR: pacman install failed with exit code $LASTEXITCODE" $ColorError
+                Write-ColorOutput "pacman output: $result" $ColorError
+                throw "pacman install failed with exit code $LASTEXITCODE"
+            }
         }
     }
     catch {
-        Write-ColorOutput "ERROR: Failed to install MinGW-w64 toolchain: $($_.Exception.Message)" $ColorError
-        throw
+        # Final fallback - check if GCC exists
+        if (Test-Path $gccPath) {
+            Write-ColorOutput "[OK] MinGW-w64 GCC found despite installation error." $ColorSuccess
+        } else {
+            Write-ColorOutput "ERROR: Failed to install MinGW-w64 toolchain: $($_.Exception.Message)" $ColorError
+            throw
+        }
     }
 }
 
@@ -199,15 +218,28 @@ try {
         }
     }
     
-    # Check if already installed
+    # Check if already installed and working
     if (-not $SkipInstall) {
         $gccExists = Test-Path "C:\msys64\ucrt64\bin\g++.exe"
         if ($gccExists) {
-            Write-ColorOutput "[WARN] MinGW-w64 appears to already be installed." $ColorWarning
-            $response = Read-Host "Continue anyway? (y/N)"
-            if ($response -notmatch "^[yY]") {
-                Write-ColorOutput "Installation cancelled by user." $ColorInfo
-                exit 0
+            # Test if g++ is working
+            try {
+                $null = & "C:\msys64\ucrt64\bin\g++.exe" --version 2>&1
+                $isWorking = $LASTEXITCODE -eq 0
+            } catch {
+                $isWorking = $false
+            }
+            
+            if ($isWorking) {
+                Write-ColorOutput "[OK] MinGW-w64 is already installed and working!" $ColorSuccess
+                Write-ColorOutput "Proceeding to PATH configuration..." $ColorInfo
+            } else {
+                Write-ColorOutput "[WARN] MinGW-w64 appears to be installed but not working properly." $ColorWarning
+                $response = Read-Host "Continue with reinstallation? (y/N)"
+                if ($response -notmatch "^[yY]") {
+                    Write-ColorOutput "Installation cancelled by user." $ColorInfo
+                    exit 0
+                }
             }
         }
     }
@@ -217,14 +249,33 @@ try {
     Write-ColorOutput "Starting installation process..." $ColorInfo
     Write-ColorOutput ""
     
-    # Step 1: Install MSYS2
+    # Determine if we need to install anything
+    $needsInstallation = $true
     if (-not $SkipInstall) {
+        $msys2Exists = Test-Path "C:\msys64\usr\bin\pacman.exe"
+        $gccExists = Test-Path "C:\msys64\ucrt64\bin\g++.exe"
+        
+        if ($msys2Exists -and $gccExists) {
+            try {
+                $null = & "C:\msys64\ucrt64\bin\g++.exe" --version 2>&1
+                if ($LASTEXITCODE -eq 0) {
+                    $needsInstallation = $false
+                    Write-ColorOutput "[OK] All components are already installed and working!" $ColorSuccess
+                }
+            } catch {
+                # Installation needed
+            }
+        }
+    }
+    
+    # Step 1: Install MSYS2
+    if (-not $SkipInstall -and $needsInstallation) {
         Install-MSYS2
         Write-ColorOutput ""
     }
     
     # Step 2: Install MinGW-w64 toolchain
-    if (-not $SkipInstall) {
+    if (-not $SkipInstall -and $needsInstallation) {
         Install-MinGWToolchain
         Write-ColorOutput ""
     }
