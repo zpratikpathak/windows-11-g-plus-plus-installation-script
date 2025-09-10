@@ -58,7 +58,8 @@ irm https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-insta
 ```powershell
 # User-only installation (default)
 iwr -useb https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1 | iex
-
+```
+```
 # System-wide installation
 iwr -useb https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/install.ps1 | iex -Args "-SystemWide"
 ```
