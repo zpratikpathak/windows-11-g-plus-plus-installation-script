@@ -1,4 +1,4 @@
-# Windows 10/11 (g++) Compiler Installation Scripts
+# MinGW-w64 (g++) Compiler Installation Scripts
 
 This repository contains automated scripts to install MinGW-w64 (g++) compiler on Windows systems.
 
@@ -170,7 +170,37 @@ After installation:
 
 ## Uninstallation
 
-To remove the compiler:
+### Automated Uninstall (Recommended)
+
+**One-liner uninstall:**
+```powershell
+irm https://raw.githubusercontent.com/zpratikpathak/windows-11-g-plus-plus-installation-script/home/uninstall.ps1 | iex
+```
+
+**Local uninstall scripts:**
+```powershell
+# PowerShell script (recommended)
+# Complete removal (removes MSYS2 and cleans PATH)
+.\uninstall.ps1
+
+# Remove from PATH only, keep MSYS2
+.\uninstall.ps1 -KeepMSYS2
+
+# System-wide removal (requires admin)
+.\uninstall.ps1 -SystemWide
+
+# Force removal without prompts
+.\uninstall.ps1 -Force
+```
+
+```cmd
+# Batch script (simple alternative)
+uninstall.bat
+```
+
+### Manual Uninstall
+
+If the script doesn't work:
 1. Uninstall MSYS2 via Windows Settings → Apps
 2. Remove `C:\msys64\ucrt64\bin` from your PATH
 3. Delete `C:\msys64` directory if it remains
